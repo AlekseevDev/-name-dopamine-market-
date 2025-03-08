@@ -28,17 +28,26 @@
             animation: pulse 2s infinite;
         }
 
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
         .product-card {
             background: rgba(50, 205, 50, 0.1);
             border-radius: 15px;
             padding: 20px;
             margin: 15px 0;
-            display: flex;
-            align-items: center;
             position: relative;
             overflow: hidden;
+            cursor: pointer;
             border: 2px solid transparent;
-            background-clip: padding-box;
+            transition: transform 0.3s ease;
+        }
+
+        .product-card:hover {
+            transform: scale(1.02);
         }
 
         .product-card::before {
@@ -52,140 +61,220 @@
             border: 2px solid transparent;
             background: linear-gradient(45deg, #32CD32, #98FB98);
             -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
             -webkit-mask-composite: destination-out;
             mask-composite: exclude;
-            animation: borderGlow 2s infinite;
-        }
-
-        .cart-icon {
-            color: gold;
-            font-size: 24px;
-            margin-right: 20px;
-        }
-
-        .product-info {
-            flex-grow: 1;
         }
 
         .product-name {
-            font-size: 18px;
-            margin-bottom: 5px;
+            color: #32CD32;
+            margin-bottom: 10px;
+            font-size: 24px;
         }
 
         .product-description {
-            font-size: 14px;
-            color: #888;
+            margin: 15px 0;
+            color: #ffffff;
+            line-height: 1.5;
+            display: none;
+        }
+
+        .product-description.expanded {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .buy-button {
-            background: none;
+            background: linear-gradient(45deg, #32CD32, #98FB98);
             border: none;
-            color: gold;
-            font-size: 24px;
+            border-radius: 8px;
+            color: black;
+            font-weight: bold;
+            padding: 10px 20px;
             cursor: pointer;
-            padding: 10px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            transition: transform 0.2s;
+            width: 100%;
+            margin-top: 10px;
+            transition: transform 0.2s ease;
         }
 
         .buy-button:hover {
-            transform: scale(1.1);
+            transform: scale(1.05);
         }
 
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.02); }
-            100% { transform: scale(1); }
+        .buy-button:active {
+            transform: scale(0.95);
         }
 
-        @keyframes borderGlow {
-            0% { opacity: 0.5; }
-            50% { opacity: 1; }
-            100% { opacity: 0.5; }
-        }
-
-        .background-dollar {
+        .modal {
+            display: none;
             position: fixed;
-            color: rgba(128, 128, 128, 0.1);
-            font-size: 40px;
-            user-select: none;
-            pointer-events: none;
-            animation: float 3s infinite;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 999;
         }
 
-        @keyframes float {
-            0% { transform: translateY(0) scale(1); }
-            50% { transform: translateY(-10px) scale(1.1); }
-            100% { transform: translateY(0) scale(1); }
+        .modal.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 20px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 400px;
+            border: 2px solid #32CD32;
+        }
+
+        .payment-info {
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(50, 205, 50, 0.1);
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .username-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            background: rgba(50, 205, 50, 0.1);
+            border: 1px solid #32CD32;
+            border-radius: 8px;
+            color: white;
+        }
+
+        .username-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
         }
     </style>
 </head>
 <body>
-    <div id="background-dollars"></div>
     <h1 class="title">DOPAMINE MARKET</h1>
-    <div id="products-container"></div>
+    <div id="products"></div>
+
+    <div class="modal" id="paymentModal">
+        <div class="modal-content">
+            <h3>Оплата</h3>
+            <div class="payment-info">
+                <p>Сумма: <span id="modalPrice"></span> TON</p>
+                <p>Кошелек: <span id="modalWallet"></span></p>
+                <p>ВАЖНО: Укажите ваш username в комментарии к платежу!</p>
+            </div>
+            <input type="text" class="username-input" id="usernameInput" placeholder="Ваш username (@username)">
+            <button class="buy-button" onclick="handlePaymentSubmit()">Оплатил</button>
+        </div>
+    </div>
 
     <script>
-        // Инициализация Telegram WebApp
         const tg = window.Telegram.WebApp;
         tg.expand();
-        tg.ready();
 
-        // Создаем фоновые доллары
-        const backgroundDollars = document.getElementById('background-dollars');
-        for (let i = 0; i < 15; i++) {
-            const dollar = document.createElement('div');
-            dollar.className = 'background-dollar';
-            dollar.textContent = '$';
-            dollar.style.left = `${Math.random() * 100}%`;
-            dollar.style.top = `${Math.random() * 100}%`;
-            dollar.style.animationDelay = `${Math.random() * 2}s`;
-            backgroundDollars.appendChild(dollar);
-        }
-
-        // Загружаем товары
         const products = [
             {
                 id: 1,
-                name: "Product 1",
-                description: "Description for product 1",
+                name: "КУРС ПО АНАЛИЗУ BLUM",
+                description: [
+                    "- полный курс по разбору токенов на BLUM",
+                    "- подробный гайд по набору подписчиков в канал по анализам токенов BLUM",
+                    "- бонус при покупке курса (после покупки)"
+                ],
                 price: "10"
-            },
-            {
-                id: 2,
-                name: "Product 2",
-                description: "Description for product 2",
-                price: "20"
             }
         ];
 
-        const container = document.getElementById('products-container');
+        const TON_WALLET = "UQAPZF6pdu93l1lviQwzx9rHqLBs3nV6s1AwteD-JG8DMTrc";
+        const ADMIN_USER_ID = 1566442050;
+
+        function toggleDescription(productId) {
+            const description = document.querySelector(`#description-${productId}`);
+            description.classList.toggle('expanded');
+        }
+
+        let currentProduct = null;
+
+        function showPaymentModal(product) {
+            currentProduct = product;
+            const modal = document.getElementById('paymentModal');
+            document.getElementById('modalPrice').textContent = product.price;
+            document.getElementById('modalWallet').textContent = TON_WALLET;
+            modal.classList.add('show');
+        }
+
+        function hidePaymentModal() {
+            const modal = document.getElementById('paymentModal');
+            modal.classList.remove('show');
+            document.getElementById('usernameInput').value = '';
+        }
+
+        function handlePaymentSubmit() {
+            const username = document.getElementById('usernameInput').value;
+            
+            if (!username.startsWith('@')) {
+                tg.showAlert('Пожалуйста, введите username, начиная с @');
+                return;
+            }
+
+            // Отправляем уведомление администратору
+            fetch('https://alekseevdev.github.io/-name-dopamine-market-/api/notify-purchase', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username,
+                    productName: currentProduct.name,
+                    adminId: ADMIN_USER_ID
+                })
+            }).catch(err => console.error('Error notifying admin:', err));
+
+            tg.showAlert(`Для завершения покупки, отправьте ${currentProduct.price} TON на кошелек:\n${TON_WALLET}\n\nВАЖНО: Укажите ваш username ${username} в комментарии к платежу!`);
+            hidePaymentModal();
+        }
+
+        // Рендерим продукты
+        const productsContainer = document.getElementById('products');
         products.forEach(product => {
-            const card = document.createElement('div');
-            card.className = 'product-card';
-            card.innerHTML = `
-                <div class="cart-icon">🛒</div>
-                <div class="product-info">
-                    <h2 class="product-name">${product.name}</h2>
-                    <p class="product-description">${product.description}</p>
+            const productElement = document.createElement('div');
+            productElement.className = 'product-card';
+            productElement.innerHTML = `
+                <h2 class="product-name">${product.name}</h2>
+                <div class="product-description" id="description-${product.id}">
+                    ${product.description.map(line => `<p>${line}</p>`).join('')}
                 </div>
-                <button class="buy-button" onclick="handleBuy(${product.id}, '${product.price}')">
-                    💰 ${product.price} TON
+                <button class="buy-button" onclick="event.stopPropagation(); showPaymentModal(${JSON.stringify(product)})">
+                    BUY
                 </button>
             `;
-            container.appendChild(card);
+            productElement.onclick = () => toggleDescription(product.id);
+            productsContainer.appendChild(productElement);
         });
 
-        // Обработка покупки
-        function handleBuy(productId, price) {
-            tg.showConfirm(`Do you want to buy this product for ${price} TON?`, (confirmed) => {
-                if (confirmed) {
-                    tg.showAlert(`Please send ${price} TON to UQAPZF6pdu93l1lviQwzx9rHqLBs3nV6s1AwteD-JG8DMTrc`);
-                }
-            });
-        }
+        // Закрытие модального окна при клике вне его
+        document.getElementById('paymentModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                hidePaymentModal();
+            }
+        });
     </script>
 </body>
 </html> 
